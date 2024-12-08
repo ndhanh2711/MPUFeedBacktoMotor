@@ -1,4 +1,4 @@
-# Install script for directory: C:/Espressif/frameworks/esp-idf-v5.3.1/project/MPU6050feedback/library_project/bts7960
+# Install script for directory: C:/Espressif/frameworks/esp-idf-v5.3.1/project/MPU6050feedback/components/bts7960
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
