@@ -1,24 +1,5 @@
-#include <stdio.h>
-#include "driver/gpio.h"
-#include "driver/ledc.h"
-#include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "rom/gpio.h"
-// Định nghĩa các chân kết nối với BTS7960
-#define R_IS_GPIO 25
-#define R_EN_GPIO 2
-#define R_PWM_CHANNEL LEDC_CHANNEL_0
-#define R_PWM_PIN GPIO_NUM_18
+#include "BTS7960.h"
 
-#define L_IS_GPIO 26
-#define L_EN_GPIO 4
-#define L_PWM_CHANNEL LEDC_CHANNEL_1
-#define L_PWM_PIN GPIO_NUM_19
-// Các biến điều khiển PWM
-#define PWM_FREQUENCY 5000    // Tần số PWM
-#define PWM_RESOLUTION LEDC_TIMER_8_BIT  // Độ phân giải PWM (0-255)
-#define PWM_MAX_DUTY 255     // Giá trị PWM tối đa
 
 /**
  * @brief Hàm khởi tạo PWM
@@ -28,43 +9,63 @@
  */
 void pwm_init() {
     gpio_config_t io_conf = {
+        /**
+         *  Các chân điều khiển
+         */
         .pin_bit_mask = (1ULL<<R_IS_GPIO) | (1ULL<<R_EN_GPIO) | (1ULL<<R_PWM_PIN) |
                         (1ULL<<L_IS_GPIO) | (1ULL<<L_EN_GPIO) | (1ULL<<L_PWM_PIN),
-        .mode = GPIO_MODE_OUTPUT,
-        .intr_type = GPIO_PIN_INTR_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
+        
+        .mode = GPIO_MODE_OUTPUT,              /** Thiết lập chân ở chế độ output */
+        .intr_type = GPIO_PIN_INTR_DISABLE,    /** Không sử dụng ngắt ở chân này */
+        .pull_down_en = GPIO_PULLDOWN_DISABLE, /** Không bật chế độ kéo xuốngxuống */
+        .pull_up_en = GPIO_PULLUP_DISABLE,     /** Không bật chế độ kéo lên */
     };
+    /**
+     * Áp dụng cấu hình cho GPIO
+     */
     gpio_config(&io_conf);
 
-    gpio_set_level(R_IS_GPIO, 0);
-    gpio_set_level(L_IS_GPIO, 0);
-    gpio_set_level(R_EN_GPIO, 1);
-    gpio_set_level(L_EN_GPIO, 1);
-
-    ledc_timer_config_t ledc_timer = {
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .duty_resolution = LEDC_TIMER_8_BIT,
-        .timer_num = LEDC_TIMER_0,
-        .freq_hz = 5000,
-        .clk_cfg = LEDC_AUTO_CLK,
+    /**
+     * Thiết lập trạng thái ban đầu cho các chân điều khiển
+     */
+    gpio_set_level(R_IS_GPIO, 0);                // Chân điều hướng phải ở mức thấp (0)
+    gpio_set_level(L_IS_GPIO, 0);                // Chân điều hướng trái ở mức thấp (0)
+    gpio_set_level(R_EN_GPIO, 1);                // Kích hoạt chân Enable cho xi lanh quay phải
+    gpio_set_level(L_EN_GPIO, 1);                // Kích hoạt chân Enable cho xi lanh quay trái
+ 
+    /** Cấu hình bộ đếm thời gian (timer) cho PWM */
+    ledc_timer_config_t ledc_timer = {          
+        .speed_mode = LEDC_LOW_SPEED_MODE,       // Chế độ tốc độ thấp
+        .duty_resolution = LEDC_TIMER_8_BIT,     // Độ phân giải 8 bit
+        .timer_num = LEDC_TIMER_0,               // Sử dụng timer 0
+        .freq_hz = 5000,                         // Tần số PWM là 5000hz
+        .clk_cfg = LEDC_AUTO_CLK,                // Dùng xung clock tự động
     };
+    /**
+     *  Áp dụng cấu hình cho timer PWM
+    */
+
     ledc_timer_config(&ledc_timer);
-
+    /** 
+    Cấu hình kênh PWM cho xi lanh phải 
+    */
     ledc_channel_config_t pwm_channel = {
-        .gpio_num = R_PWM_PIN,
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel = R_PWM_CHANNEL,
-        .intr_type = LEDC_INTR_DISABLE,
-        .timer_sel = LEDC_TIMER_0,
-        .duty = 0,
-        .hpoint = 0,
+        .gpio_num = R_PWM_PIN,                   // Chân GPIO được sử dụng cho PWM của xi lanh phải
+        .speed_mode = LEDC_LOW_SPEED_MODE,       // Chế độ tốc độ thấp
+        .channel = R_PWM_CHANNEL,                // Kênh PWM dành cho xi lanh phải
+        .intr_type = LEDC_INTR_DISABLE,          // Không sử dụng ngắt cho kênh PWM
+        .timer_sel = LEDC_TIMER_0,               // Sử dung timer 0
+        .duty = 0,                               // Đặt mức duty cycle ban đầu là 0
+        .hpoint = 0,                             // Không có điểm hpoint
     };
-    ledc_channel_config(&pwm_channel);
-
-    pwm_channel.gpio_num = L_PWM_PIN;
-    pwm_channel.channel = L_PWM_CHANNEL;
-    ledc_channel_config(&pwm_channel);
+    ledc_channel_config(&pwm_channel);  /** Áp dụng cấu hình cho kênh PWM xi lanh phải */
+     
+    /**
+    Cấu hình kênh PWM cho xi lanh quay trái 
+     */
+    pwm_channel.gpio_num = L_PWM_PIN;            // Chân GPIO được sử dụng cho PWM của xi lanh trái
+    pwm_channel.channel = L_PWM_CHANNEL;         // Kênh PWM dành cho xi lanh trái
+    ledc_channel_config(&pwm_channel);           // Áp dụng cấu hình cho kênh PWM xi lanh trái
 }
 
 /**
@@ -73,41 +74,66 @@ void pwm_init() {
  * Đặt REN và LEN ở chế độ OUTPUT và thiết lập mức logic ban đầu.
  */
 /**
- * @brief Hàm nâng xi lanh
+ * @brief Nâng xi lanh lên với tốc độ chỉ định.
  * 
- * @param speed Giá trị tốc độ PWM (0-255)
+ * Hàm này điều khiển xi lanh nâng lên bằng cách thiết lập 
+ * mức duty cycle PWM cho kênh điều khiển xi lanh phải 
+ * và đặt duty cycle về 0 cho xi lanh trái.
  * 
- * Kích hoạt chân nâng (REN) và điều chỉnh tốc độ bằng PWM qua RPWM.
+ * @param speed Giá trị tốc độ nâng (0-255) tương ứng với duty cycle PWM.
  */
 void lift_up(uint8_t speed) {
+    // Thiết lập mức duty cycle PWM cho kênh điều khiển xi lanh phải
     ledc_set_duty(LEDC_LOW_SPEED_MODE, R_PWM_CHANNEL, speed);
+    // Cập nhật giá trị duty cycle để áp dụng thay đổi
     ledc_update_duty(LEDC_LOW_SPEED_MODE, R_PWM_CHANNEL);
+
+    // Đặt mức duty cycle PWM về 0 cho kênh điều khiển xi lanh trái
     ledc_set_duty(LEDC_LOW_SPEED_MODE, L_PWM_CHANNEL, 0);
+    // Cập nhật giá trị duty cycle để áp dụng thay đổi
     ledc_update_duty(LEDC_LOW_SPEED_MODE, L_PWM_CHANNEL);
 }
 
+
 /**
- * @brief Hàm hạ xi lanh
+ * @brief Hạ xi lanh xuống với tốc độ chỉ định.
  * 
- * @param speed Giá trị tốc độ PWM (0-255)
+ * Hàm này điều khiển xi lanh hạ xuống bằng cách thiết lập 
+ * mức duty cycle PWM cho kênh điều khiển xi lanh trái 
+ * và đặt duty cycle về 0 cho xi lanh phải.
  * 
- * Kích hoạt chân hạ (LEN) và điều chỉnh tốc độ bằng PWM qua LPWM.
+ * @param speed Giá trị tốc độ hạ (0-255) tương ứng với duty cycle PWM.
  */
 void lower_down(uint8_t speed) {
+    // Đặt mức duty cycle PWM về 0 cho kênh điều khiển xi lanh phải
     ledc_set_duty(LEDC_LOW_SPEED_MODE, R_PWM_CHANNEL, 0);
+    // Cập nhật giá trị duty cycle để áp dụng thay đổi
     ledc_update_duty(LEDC_LOW_SPEED_MODE, R_PWM_CHANNEL);
+
+    // Thiết lập mức duty cycle PWM cho kênh điều khiển xi lanh trái
     ledc_set_duty(LEDC_LOW_SPEED_MODE, L_PWM_CHANNEL, speed);
+    // Cập nhật giá trị duty cycle để áp dụng thay đổi
     ledc_update_duty(LEDC_LOW_SPEED_MODE, L_PWM_CHANNEL);
 }
 
+
 /**
- * @brief Hàm dừng xi lanh
+ * @brief Dừng hoạt động của xi lanh.
  * 
- * Đặt cả hai chân điều khiển về mức thấp và dừng PWM.
+ * Hàm này dừng cả hai xi lanh (trái và phải) bằng cách đặt 
+ * mức duty cycle PWM về 0 cho cả hai kênh điều khiển.
+ * 
+ * Không có chuyển động nào xảy ra khi hàm này được gọi.
  */
 void stop_cylinder() {
+    // Đặt mức duty cycle PWM về 0 cho kênh điều khiển xi lanh phải
     ledc_set_duty(LEDC_LOW_SPEED_MODE, R_PWM_CHANNEL, 0);
+    // Cập nhật giá trị duty cycle để áp dụng thay đổi
     ledc_update_duty(LEDC_LOW_SPEED_MODE, R_PWM_CHANNEL);
+
+    // Đặt mức duty cycle PWM về 0 cho kênh điều khiển xi lanh trái
     ledc_set_duty(LEDC_LOW_SPEED_MODE, L_PWM_CHANNEL, 0);
+    // Cập nhật giá trị duty cycle để áp dụng thay đổi
     ledc_update_duty(LEDC_LOW_SPEED_MODE, L_PWM_CHANNEL);
 }
+

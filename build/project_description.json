@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "MPU6050feedback",
-    "project_version":    "6808695-dirty",
+    "project_version":    "6ec8839-dirty",
     "project_path":       "C:/Espressif/frameworks/MPU6050feedback",
     "idf_path":           "C:/Espressif/frameworks/esp-idf-v5.3.1",
     "build_dir":          "C:/Espressif/frameworks/MPU6050feedback/build",

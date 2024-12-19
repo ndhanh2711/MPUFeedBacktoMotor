@@ -2,17 +2,31 @@
 #define MOTOR_CONTROL_H
 
 #include <stdint.h>
+#include <stdio.h>
+#include "driver/gpio.h"
+#include "driver/ledc.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "rom/gpio.h"
 
-// Định nghĩa chân kết nối với BTS7960
-#define REN_PIN    GPIO_NUM_2   // Chân điều khiển chiều nâng
-#define LEN_PIN    GPIO_NUM_4   // Chân điều khiển chiều hạ
-#define RPWM_PIN   GPIO_NUM_18  // Chân PWM cho chiều nâng
-#define LPWM_PIN   GPIO_NUM_19  // Chân PWM cho chiều hạ
+// Định nghĩa các chân kết nối với module BTS7960
 
-// Định nghĩa các tham số PWM
-#define PWM_FREQUENCY 5000         // Tần số PWM
-#define PWM_RESOLUTION LEDC_TIMER_8_BIT  // Độ phân giải PWM (0-255)
-#define PWM_MAX_DUTY 255           // Giá trị PWM tối đa
+#define R_IS_GPIO 25                   // Chân điều khiển chiều dòng điện cho xi lanh phải
+#define R_EN_GPIO 2                    // Chân kích hoạt (enable) xi lanh phải
+#define R_PWM_CHANNEL LEDC_CHANNEL_0   // Kênh PWM cho xi lanh phải
+#define R_PWM_PIN GPIO_NUM_18          // Chân đầu ra PWM cho xi lanh phải
+ 
+#define L_IS_GPIO 26                   // Chân điều khiển chiều dòng điện cho xi lanh trái
+#define L_EN_GPIO 4                    // Chân kích hoạt (enable) xi lanh trái
+#define L_PWM_CHANNEL LEDC_CHANNEL_1   // Kênh PWM cho xi lanh trái
+#define L_PWM_PIN GPIO_NUM_19          // Chân đầu ra PWM cho xi lanh trái
+
+// Các hằng số cấu hình PWM
+
+#define PWM_FREQUENCY 5000    // Tần số PWM (Hz), quyết định tốc độ điều khiển
+#define PWM_RESOLUTION LEDC_TIMER_8_BIT  // Độ phân giải PWM (8 bit: giá trị từ 0 đến 255)
+#define PWM_MAX_DUTY 255      // Giá trị duty cycle tối đa cho PWM (100%)
 
 /**
  * @brief Khởi tạo PWM

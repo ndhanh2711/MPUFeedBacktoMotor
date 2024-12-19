@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <math.h>
+
+#include "BTS7960.h"
 // Cấu trúc PID
 typedef struct
 {                         
