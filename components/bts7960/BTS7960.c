@@ -4,13 +4,17 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
+#include "rom/gpio.h"
 // Định nghĩa các chân kết nối với BTS7960
-#define REN_PIN    GPIO_NUM_2   // Chân điều khiển chiều nâng
-#define LEN_PIN    GPIO_NUM_4   // Chân điều khiển chiều hạ
-#define RPWM_PIN   GPIO_NUM_18  // Chân PWM cho chiều nâng
-#define LPWM_PIN   GPIO_NUM_19  // Chân PWM cho chiều hạ
+#define R_IS_GPIO 25
+#define R_EN_GPIO 2
+#define R_PWM_CHANNEL LEDC_CHANNEL_0
+#define R_PWM_PIN GPIO_NUM_18
 
+#define L_IS_GPIO 26
+#define L_EN_GPIO 4
+#define L_PWM_CHANNEL LEDC_CHANNEL_1
+#define L_PWM_PIN GPIO_NUM_19
 // Các biến điều khiển PWM
 #define PWM_FREQUENCY 5000    // Tần số PWM
 #define PWM_RESOLUTION LEDC_TIMER_8_BIT  // Độ phân giải PWM (0-255)
@@ -23,36 +27,44 @@
  * (nâng và hạ) qua RPWM và LPWM.
  */
 void pwm_init() {
-    // Cấu hình timer PWM
-    ledc_timer_config_t timer_config = {
-        .duty_resolution = PWM_RESOLUTION,
-        .freq_hz = PWM_FREQUENCY,
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL<<R_IS_GPIO) | (1ULL<<R_EN_GPIO) | (1ULL<<R_PWM_PIN) |
+                        (1ULL<<L_IS_GPIO) | (1ULL<<L_EN_GPIO) | (1ULL<<L_PWM_PIN),
+        .mode = GPIO_MODE_OUTPUT,
+        .intr_type = GPIO_PIN_INTR_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+    };
+    gpio_config(&io_conf);
+
+    gpio_set_level(R_IS_GPIO, 0);
+    gpio_set_level(L_IS_GPIO, 0);
+    gpio_set_level(R_EN_GPIO, 1);
+    gpio_set_level(L_EN_GPIO, 1);
+
+    ledc_timer_config_t ledc_timer = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
+        .duty_resolution = LEDC_TIMER_8_BIT,
         .timer_num = LEDC_TIMER_0,
+        .freq_hz = 5000,
+        .clk_cfg = LEDC_AUTO_CLK,
     };
-    ledc_timer_config(&timer_config);
+    ledc_timer_config(&ledc_timer);
 
-    // Cấu hình kênh PWM cho RPWM (chiều nâng xi lanh)
-    ledc_channel_config_t channel_config_rpwm = {
-        .channel = LEDC_CHANNEL_0,
-        .gpio_num = RPWM_PIN,
+    ledc_channel_config_t pwm_channel = {
+        .gpio_num = R_PWM_PIN,
         .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = R_PWM_CHANNEL,
+        .intr_type = LEDC_INTR_DISABLE,
         .timer_sel = LEDC_TIMER_0,
-        .duty = 0,  // Bắt đầu với giá trị PWM là 0
+        .duty = 0,
         .hpoint = 0,
     };
-    ledc_channel_config(&channel_config_rpwm);
+    ledc_channel_config(&pwm_channel);
 
-    // Cấu hình kênh PWM cho LPWM (chiều hạ xi lanh)
-    ledc_channel_config_t channel_config_lpwm = {
-        .channel = LEDC_CHANNEL_1,
-        .gpio_num = LPWM_PIN,
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .timer_sel = LEDC_TIMER_0,
-        .duty = 0,  // Bắt đầu với giá trị PWM là 0
-        .hpoint = 0,
-    };
-    ledc_channel_config(&channel_config_lpwm);
+    pwm_channel.gpio_num = L_PWM_PIN;
+    pwm_channel.channel = L_PWM_CHANNEL;
+    ledc_channel_config(&pwm_channel);
 }
 
 /**
@@ -60,15 +72,6 @@ void pwm_init() {
  * 
  * Đặt REN và LEN ở chế độ OUTPUT và thiết lập mức logic ban đầu.
  */
-void motor_direction_init() {
-    gpio_set_direction(REN_PIN, GPIO_MODE_OUTPUT); // Chân điều khiển chiều nâng
-    gpio_set_direction(LEN_PIN, GPIO_MODE_OUTPUT); // Chân điều khiển chiều hạ
-
-    // Đặt mức thấp ban đầu để đảm bảo xi lanh không hoạt động
-    gpio_set_level(REN_PIN, 0);
-    gpio_set_level(LEN_PIN, 0);
-}
-
 /**
  * @brief Hàm nâng xi lanh
  * 
@@ -77,13 +80,10 @@ void motor_direction_init() {
  * Kích hoạt chân nâng (REN) và điều chỉnh tốc độ bằng PWM qua RPWM.
  */
 void lift_up(uint8_t speed) {
-    gpio_set_level(REN_PIN, 1);  // Kích hoạt chiều nâng
-    gpio_set_level(LEN_PIN, 0);  // Đảm bảo chiều hạ tắt
-
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, speed);  // PWM cho nâng
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 0);  // Đảm bảo chiều hạ dừng
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, R_PWM_CHANNEL, speed);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, R_PWM_CHANNEL);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, L_PWM_CHANNEL, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, L_PWM_CHANNEL);
 }
 
 /**
@@ -94,13 +94,10 @@ void lift_up(uint8_t speed) {
  * Kích hoạt chân hạ (LEN) và điều chỉnh tốc độ bằng PWM qua LPWM.
  */
 void lower_down(uint8_t speed) {
-    gpio_set_level(REN_PIN, 0);  // Đảm bảo chiều nâng tắt
-    gpio_set_level(LEN_PIN, 1);  // Kích hoạt chiều hạ
-
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);  // Đảm bảo chiều nâng dừng
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, speed);  // PWM cho hạ
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, R_PWM_CHANNEL, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, R_PWM_CHANNEL);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, L_PWM_CHANNEL, speed);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, L_PWM_CHANNEL);
 }
 
 /**
@@ -109,11 +106,8 @@ void lower_down(uint8_t speed) {
  * Đặt cả hai chân điều khiển về mức thấp và dừng PWM.
  */
 void stop_cylinder() {
-    gpio_set_level(REN_PIN, 0);  // Dừng chiều nâng
-    gpio_set_level(LEN_PIN, 0);  // Dừng chiều hạ
-
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);  // Dừng PWM cho nâng
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 0);  // Dừng PWM cho hạ
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, R_PWM_CHANNEL, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, R_PWM_CHANNEL);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, L_PWM_CHANNEL, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, L_PWM_CHANNEL);
 }

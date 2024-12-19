@@ -1,5 +1,5 @@
 #include "pid.h"
-
+#include "BTS7960.h"
 // Khởi tạo PID với các tham số phù hợp
 PID_Controller pid;
 
@@ -10,12 +10,14 @@ PID_Controller pid;
  * @param kd Hệ số D của PID
  * @param curpoint Giá trị hiện tại cho PID
  */
-void pid_init(float kp, float kd, float curpoint)
-{ // Hàm này bạn chỉ để trong file .c nên idf nó không hiểu phải tìm ở đâu
+void pid_init(float kp, float kd, float dt, float curpoint)
+{ 
     pid.kp = kp;
-    pid.kd = kd; // Setpoint ở đây của bạn là giá trị thực actual value ?, cái này em làm nó là nâng hạ cho chảo thu sóng ạ, thì set point ỏ đây là góc độ cao, mà góc độ cao được xác định bằng một bạn khác nhưng chưa cho vào đây nên tạm để giả định ạ
+    pid.kd = kd; 
+    pid.dt = dt;
     pid.curpoint = curpoint;
     pid.setpoint = curpoint;
+    pid.previous_error = 0.0;
 }
 
 void pid_set_target_value(float setpoint)
@@ -23,12 +25,23 @@ void pid_set_target_value(float setpoint)
     pid.setpoint = setpoint;
 }
 
-float pid_compute(PID_Controller *pid)
+float pid_compute(PID_Controller *pid) // Đầu ra của hàm PID 
 {
-    float output = 0.0f;
+    float output = 0.0;
     float error = pid->setpoint - pid->curpoint;
+
+        // Tính đạo hàm của sai số
+    float derivative_error = (error - pid->previous_error) / pid->dt;
+
+
+    // Tính output với PD
+    output = (pid->kp * error) + (pid->kd * derivative_error);
+
+
     // Bạn bỏ thuật toán PD của bạn vào
     pid->previous_error = error;
+    
+    
     return output;
 }
 
@@ -40,27 +53,30 @@ float pid_compute(PID_Controller *pid)
  */
 int16_t control_cylinder_with_pid(float current_position)
 {
-    // Tính toán đầu ra PID
+    // Tính toán đầu ra PID, 
     pid.curpoint = current_position;
     float pid_output = pid_compute(&pid);
 
-   float speed = 0; // vậy để float ? vâng
+   float speed = 0; // 
     if (pid_output > 0.1f)
     {
         // Nếu PID output > 0, di chuyển xi lanh lên 
-        speed = (pid_output > 255.0f ? 255.0f : pid_output); // Giới hạn tốc độ tối đa là 255
+        speed = 255; //(pid_output > -0.0f ? -255.0f : pid_output); // Giới hạn tốc độ tối đa là 255
         // lift_up(speed); -> viết code
+        lift_up(speed);
     }
     else if (pid_output < -0.1f)
     {
         // Nếu PID output < 0, di chuyển xi lanh xuống
-        speed = (pid_output < -255.0f ? -255.0f : pid_output); // Giới hạn tốc độ tối đa là 255
+        speed = 255; //(pid_output < -0.0f ? -255.0f : pid_output); // Giới hạn tốc độ tối đa là 255
         // lower_down(speed); -> viết code
+        lower_down(speed);
     }
     else
     {
         // Nếu PID output == 0, dừng xi lanh
         // stop_cylinder(); -> viết code
+        stop_cylinder();
     }
 
     return speed;

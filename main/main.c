@@ -5,12 +5,9 @@ void task_xylanh_mpu6050(void *pvParameters)
     // khởi tạo xy lanh
     // Khởi tạo các chân GPIO và PWM
     pwm_init();
-    motor_direction_init();
-
-    // Giả sử bạn đã lấy được giá trị setpoint và current_position từ cảm biến QMC5883
-    float curpoint = 45.00; // Ví dụ setpoint là 100
-
-    pid_init(1.0, 0.1, curpoint); // kp=1.0, kd=0.1
+ 
+    PID_Controller *pid;
+    // Giả sử bạn đã lấy được giá trị setpoint và current_position từ cảm biến mpu6050mpu6050
     // khởi tao mpu6050
     MPU6050 mpu;
     MPU6050_init(&mpu, MPU6050_DEFAULT_ADDRESS);
@@ -54,6 +51,10 @@ void task_xylanh_mpu6050(void *pvParameters)
         // elevation là current_value
         // code điều khiển xylanh
         //  Gọi hàm điều khiển xi lanh sử dụng PID
+       
+
+        pid_init(2.0f , 0.5f , 0.0f , Elevation); // kp=1.0, kd=0.1
+        pid_set_target_value(0.0f);   //Setpoint
         uint8_t speed = control_cylinder_with_pid(Elevation);
         // Kiểm tra thay đổi góc, khi có thay đổi lớn
         if (fabs(Elevation - prevElevation) >= 5.0)
@@ -62,6 +63,7 @@ void task_xylanh_mpu6050(void *pvParameters)
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
+
 }
 
 void start_i2c(void)
@@ -80,7 +82,11 @@ void start_i2c(void)
 
 void app_main(void)
 {
-    start_i2c();
-    xTaskCreate((TaskFunction_t)task_xylanh_mpu6050, "[task_xylanh_mpu6050]", 1024 * 8, NULL, 1, NULL); // À là cái ở trên hả =)), bạn khai báo lạ quá, dạ
-    vTaskDelete(NULL);
+     start_i2c();
+     xTaskCreate((TaskFunction_t)task_xylanh_mpu6050, "[task_xylanh_mpu6050]", 1024 * 8, NULL, 1, NULL);
+     vTaskDelete(NULL);
+
+   
+
+
 }

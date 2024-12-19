@@ -8,14 +8,14 @@
 #include <stdbool.h>
 
 #define I2C_SDA_PORT gpioPortA
-#define I2C_SDA_PIN 18
+#define I2C_SDA_PIN 21
 #define I2C_SDA_MODE gpioModeWiredAnd
-#define I2C_SDA_DOUT 1
+#define I2C_SDA_DOUT 21
 
 #define I2C_SCL_PORT gpioPortA
-#define I2C_SCL_PIN 19
+#define I2C_SCL_PIN 22 
 #define I2C_SCL_MODE gpioModeWiredAnd
-#define I2C_SCL_DOUT 1
+#define I2C_SCL_DOUT 21
 
 #define I2CDEV_DEFAULT_READ_TIMEOUT 1000
 

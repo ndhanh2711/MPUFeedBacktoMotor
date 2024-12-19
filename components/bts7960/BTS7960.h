@@ -26,15 +26,6 @@ void pwm_init(void);
  * 
  * Thiết lập các chân điều khiển (REN, LEN) ở chế độ OUTPUT.
  */
-void motor_direction_init(void);
-
-/**
- * @brief Nâng xi lanh
- * 
- * @param speed Giá trị tốc độ PWM (0-255)
- * 
- * Kích hoạt chiều nâng xi lanh với tốc độ điều chỉnh qua PWM.
- */
 void lift_up(uint8_t speed);
 
 /**

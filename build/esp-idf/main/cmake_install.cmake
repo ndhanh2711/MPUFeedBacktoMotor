@@ -1,4 +1,4 @@
-# Install script for directory: C:/Espressif/frameworks/esp-idf-v5.3.1/project/MPU6050feedback/main
+# Install script for directory: C:/Espressif/frameworks/MPU6050feedback/main
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

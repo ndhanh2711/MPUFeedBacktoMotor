@@ -14,7 +14,7 @@
 #include <math.h>
 #include <hal/gpio_types.h>
 
-#define GPIO_SDA_PIN GPIO_NUM_0 // Nhập chân thực tế
-#define GPIO_SCL_PIN GPIO_NUM_0
+#define GPIO_SDA_PIN 21 // Nhập chân thực tế
+#define GPIO_SCL_PIN 22
 
 #endif 
